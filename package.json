@@ -1,0 +1,27 @@
+{
+  "name": "tweeters-play-pokemon",
+  "version": "1.0.0",
+  "description": "Twitter bot to play Pokemon collectively",
+  "main": "main.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "bot",
+    "twitter",
+    "pokemon",
+    "gameboy"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "base64-img": "^1.0.4",
+    "bluebird": "^3.5.1",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2",
+    "twitter": "^1.7.1"
+  },
+  "devDependencies": {
+    "standard": "^11.0.1"
+  }
+}
