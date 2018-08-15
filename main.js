@@ -6,8 +6,6 @@ const Promise = require('bluebird')
 
 const EMULATOR_URL = process.env.EMULATOR_URL || 'http://localhost:8123'
 
-const LAST_DATA = false // get persisted data if program was interrupted
-
 let LAST_MENTION_ID = 706829683887837200
 
 const VALID_MOVES = [ 'a', 'b', 'up', 'down', 'left', 'right', 'start', 'select' ]
@@ -39,7 +37,7 @@ const tweet = async (data = {}) => {
   const imagePath = base64Img.imgSync(imageBase64, '', 'tmp-img')
   const image = fs.readFileSync(imagePath)
 
-  const media = await client.post('media/upload', {media: image})
+  const media = await client.post('media/upload', { media: image })
   console.log(media)
 
   const status = {
@@ -51,29 +49,32 @@ const tweet = async (data = {}) => {
 }
 
 const run = async () => {
-  if (LAST_DATA) {
+  if (false) {
     // TODO
-  } else {
+  }
+  else {
     // new game
     const startData = JSON.parse(await runEmulator('start'))
     await tweet({
       text: 'Aaaaand the game begins... Pick the first button to press (a, b, up, down, left, right, select, start)',
       image: startData.result.screenshot
     }).catch(console.error)
-
-    return turn()
   }
+  return turn()
 }
 
 const turn = async () => {
   const nextMove = await getNextMove()
-  if (!nextMove) return Promise.delay(10e3).then(turn)
+  if (!nextMove) return Promise.delay(30e3).then(turn)
   console.log(nextMove)
   const aData = JSON.parse(await runEmulator('execute', { key: nextMove }))
-  await tweet({
-    text: 'This is the result of the last move. Pick the next button to press (a, b, up, down, left, right, select, start)',
-    image: aData.result.screenshot
-  }).catch(console.error)
+  await Promise.all([
+    tweet({
+      text: 'This is the result of the last move. Pick the next button to press (a, b, up, down, left, right, select, start)',
+      image: aData.result.screenshot
+    }).catch(console.error),
+    Promise.delay(30e3)
+  ])
   return turn()
 }
 
@@ -83,7 +84,7 @@ const getNextMove = async () => {
     since_id: LAST_MENTION_ID
   })
   const lastMention = mentions.find(x => {
-    const text = x.text.replace('@ElFavDeFieoner1', '').trim()
+    const text = x.text.replace('@WePlayBot', '').trim()
     return VALID_MOVES.indexOf(text) > -1
   })
   console.log(mentions)
@@ -92,7 +93,7 @@ const getNextMove = async () => {
   if (lastMention) LAST_MENTION_ID = lastMention.id
   else return false
 
-  return lastMention.text.replace('@ElFavDeFieoner1', '').trim()
+  return lastMention.text.replace('@WePlayBot', '').trim()
 }
 
 run().catch(console.error)

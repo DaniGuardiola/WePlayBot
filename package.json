@@ -4,7 +4,8 @@
   "description": "Twitter bot to play Pokemon collectively",
   "main": "main.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "start": "node main"
   },
   "keywords": [
     "bot",
