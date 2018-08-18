@@ -12,6 +12,8 @@ const DELAY = 10e3
 
 const VALID_MOVES = [ 'a', 'b', 'up', 'down', 'left', 'right', 'start', 'select' ]
 
+let moves = {}
+
 const resetPoll = (moves) => {VALID_MOVES.forEach(item => moves[item] = 0)}
 
 const client = new Twitter({
@@ -56,7 +58,6 @@ const run = async () => {
     dir: '.persistence',
   	logging: false,
   })
-  let moves = {}
   resetPoll(moves)
   const game_started = await Persistence.getItem('game_started')
   if (game_started == 'yes') {
@@ -82,8 +83,9 @@ const run = async () => {
 }
 
 const stream = client.stream('statuses/filter', {track: '@WePlayBot'})
-stream.on('data', event => {
-  if (event.in_reply_to_user_id == "4614087921"){
+stream.on('data', async event => {
+  const lastTweet = await Persistence.getItem('lastTweet')
+  if (event.in_reply_to_user_id == "4614087921" && event.in_reply_to_status_id == lastTweet){
     console.log("new tweet text: "+event.text)
     const clean_tweet = event.text.toLowerCase().replace('@weplaybot', '').trim().split(' ')
     const move = VALID_MOVES.find(valid_move => {
@@ -128,7 +130,6 @@ const turn = async (moves) => {
       in_reply_to_status_id: lastTweet
     }).then(status => {
       Persistence.setItem('lastTweet', status.id_str)
-      console.log(status)
     }).catch(console.error),
     Promise.delay(DELAY)
   ])
