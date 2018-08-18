@@ -17,6 +17,7 @@
   "license": "MIT",
   "dependencies": {
     "base64-img": "^1.0.4",
+    "big-integer": "^1.6.34",
     "bluebird": "^3.5.1",
     "request": "^2.88.0",
     "request-promise": "^4.2.2",
