@@ -10,11 +10,8 @@ const EMULATOR_URL = process.env.EMULATOR_URL || 'http://localhost:8123'
 
 const DELAY = 10e3
 
-let LAST_MENTION_ID = 706829683887837200
-
 const VALID_MOVES = [ 'a', 'b', 'up', 'down', 'left', 'right', 'start', 'select' ]
 
-let moves = {}
 const resetPoll = (moves) => {VALID_MOVES.forEach(item => moves[item] = 0)}
 
 const client = new Twitter({
@@ -59,8 +56,8 @@ const run = async () => {
     dir: '.persistence',
   	logging: false,
   })
+  let moves = {}
   resetPoll(moves)
-  await Persistence.setItem('game_started', 'yes')
   const game_started = await Persistence.getItem('game_started')
   if (game_started == 'yes') {
     // TODO
@@ -102,9 +99,9 @@ stream.on('error', error => {
   console.error(error)
 })
 
-const winnerMove = async (moves) => {
-  var result = 0
-  var winner = 'nothing'
+const getNextMove = async (moves) => {
+  let result = 0
+  let winner = 'nothing'
   Object.keys(moves).forEach(move => {
     if (moves[move] > result){
       result = moves[move]
@@ -118,8 +115,10 @@ const winnerMove = async (moves) => {
 const turn = async (moves) => {
   console.log("moves for this turn:")
   console.log(moves)
-  const nextMove = await winnerMove(moves)
+
+  const nextMove = await getNextMove(moves)
   if (nextMove == 'nothing') return Promise.delay(DELAY).then(() => turn(moves))
+
   const aData = JSON.parse(await runEmulator('execute', { key: nextMove }))
   const lastTweet = await Persistence.getItem('lastTweet')
   await Promise.all([
@@ -129,31 +128,11 @@ const turn = async (moves) => {
       in_reply_to_status_id: lastTweet
     }).then(status => {
       Persistence.setItem('lastTweet', status.id_str)
+      console.log(status)
     }).catch(console.error),
     Promise.delay(DELAY)
   ])
   turn(moves)
 }
-
-
-
-// const getNextMove = async () => {
-//   console.log('before')
-//   console.log('last mention id', LAST_MENTION_ID)
-//   const mentions = await client.get('statuses/mentions_timeline', {
-//     since_id: LAST_MENTION_ID
-//   })
-//   const lastMention = mentions.find(x => {
-//     const text = x.text.toLowerCase().replace('@weplaybot', '').trim()
-//     return VALID_MOVES.indexOf(text) > -1
-//   })
-//   // console.log(mentions)
-//   console.log('after')
-//   // console.log(lastMention)
-//   if (lastMention) LAST_MENTION_ID = bigInt(lastMention.id_str).add(1).toString()
-//   else return false
-//
-//   return lastMention.text.toLowerCase().replace('@weplaybot', '').trim()
-// }
 
 run().catch(console.error)
