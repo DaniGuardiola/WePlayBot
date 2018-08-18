@@ -4,10 +4,11 @@ const base64Img = require('base64-img')
 const fs = require('fs')
 const Promise = require('bluebird')
 const bigInt = require('big-integer')
+const Persistence = require('node-persist')
 
 const EMULATOR_URL = process.env.EMULATOR_URL || 'http://localhost:8123'
 
-const DELAY = 30e3
+const DELAY = 10e3
 
 let LAST_MENTION_ID = 706829683887837200
 
@@ -44,29 +45,41 @@ const tweet = async (data = {}) => {
   const image = fs.readFileSync(imagePath)
 
   const media = await client.post('media/upload', { media: image })
-  console.log(media)
 
   const status = {
-    status: data.text,
-    media_ids: media.media_id_string
+    status: "@WePlayBot "+data.text,
+    media_ids: media.media_id_string,
+    in_reply_to_status_id: data.in_reply_to_status_id
   }
-
   return client.post('statuses/update', status)
 }
 
 const run = async () => {
+  await Persistence.init({
+    dir: '.persistence',
+  	logging: false,
+  })
   resetPoll(moves)
-  if (true) {
+  await Persistence.setItem('game_started', 'yes')
+  const game_started = await Persistence.getItem('game_started')
+  if (game_started == 'yes') {
     // TODO
   }
   else {
     // new game
     const startData = JSON.parse(await runEmulator('start'))
-    await Promise.all([tweet({
-      text: 'Aaaaand the game begins... Pick the first button to press (a, b, up, down, left, right, select, start)',
-      image: startData.result.screenshot
-    }).catch(console.error),
-    Promise.delay(DELAY)])
+    const lastTweet = await Persistence.getItem('lastTweet')
+    await Promise.all([
+      tweet({
+        text: 'Aaaaand the game begins... Pick the first button to press (a, b, up, down, left, right, select, start)',
+        image: aData.result.screenshot,
+        in_reply_to_status_id: lastTweet
+      }).then(status => {
+        Persistence.setItem('lastTweet', status.id_str)
+      }).catch(console.error),
+      Promise.delay(DELAY)
+    ])
+    Persistence.setItem('game_started', 'yes')
   }
   return turn(moves)
 }
@@ -74,14 +87,15 @@ const run = async () => {
 const stream = client.stream('statuses/filter', {track: '@WePlayBot'})
 stream.on('data', event => {
   if (event.in_reply_to_user_id == "4614087921"){
-    console.log("event: "+event)
-    console.log("text: "+event.text)
-    const move = event.text.toLowerCase().replace('@weplaybot', '').trim()
-    console.log("moves2times")
-    console.log(moves)
-    if (VALID_MOVES.indexOf(move) > -1)
+    console.log("new tweet text: "+event.text)
+    const clean_tweet = event.text.toLowerCase().replace('@weplaybot', '').trim().split(' ')
+    const move = VALID_MOVES.find(valid_move => {
+      return clean_tweet.includes(valid_move)
+    })
+    if (move) {
+      console.log("move found: "+move)
       moves[move] += 1
-    console.log(moves)
+    }
   }
 })
 stream.on('error', error => {
@@ -91,8 +105,6 @@ stream.on('error', error => {
 const winnerMove = async (moves) => {
   var result = 0
   var winner = 'nothing'
-  console.log("win")
-  console.log(moves)
   Object.keys(moves).forEach(move => {
     if (moves[move] > result){
       result = moves[move]
@@ -104,14 +116,19 @@ const winnerMove = async (moves) => {
 }
 
 const turn = async (moves) => {
+  console.log("moves for this turn:")
   console.log(moves)
   const nextMove = await winnerMove(moves)
   if (nextMove == 'nothing') return Promise.delay(DELAY).then(() => turn(moves))
   const aData = JSON.parse(await runEmulator('execute', { key: nextMove }))
+  const lastTweet = await Persistence.getItem('lastTweet')
   await Promise.all([
     tweet({
       text: 'This is the result of the last move. Pick the next button to press (a, b, up, down, left, right, select, start)',
-      image: aData.result.screenshot
+      image: aData.result.screenshot,
+      in_reply_to_status_id: lastTweet
+    }).then(status => {
+      Persistence.setItem('lastTweet', status.id_str)
     }).catch(console.error),
     Promise.delay(DELAY)
   ])
