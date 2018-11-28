@@ -4,6 +4,7 @@ const base64Img = require('base64-img')
 const fs = require('fs')
 const Promise = require('bluebird')
 const db = require('node-persist')
+const bigInt = require('big-integer')
 
 const EMULATOR_URL = process.env.EMULATOR_URL || 'http://localhost:8123'
 
@@ -82,15 +83,14 @@ const run = async () => {
 
 const stream = client.stream('statuses/filter', {track: '@WePlayBot'})
 stream.on('data', async event => {
-  const lastTweet = await db.getItem('lastTweet')
-  if (event.in_reply_to_user_id === '4614087921' && event.in_reply_to_status_id === lastTweet) {
-    console.log('new tweet text: ' + event.text)
+  const lastTweet = bigInt(await db.getItem('lastTweet'))
+  const replyTweet = bigInt(event.in_reply_to_status_id)
+  if (event.in_reply_to_user_id === 4614087921 && lastTweet.compare(replyTweet)) {
     const cleanTweet = event.text.toLowerCase().replace('@weplaybot', '').trim().split(' ')
     const move = VALID_MOVES.find(validMove => {
       return cleanTweet.includes(validMove)
     })
     if (move) {
-      console.log('move found: ' + move)
       moves[move] += 1
     }
   }
@@ -108,15 +108,19 @@ const getNextMove = async (moves) => {
       winner = move
     }
   })
+  console.log("Moves: ", moves)
+  console.log("Winner: ", winner)
   resetPoll(moves)
   return winner
 }
 
 const turn = async (moves) => {
   console.log('moves for this turn:')
+  console.log(stream) 
   console.log(moves)
 
   const nextMove = await getNextMove(moves)
+  console.log(nextMove)
   if (nextMove === 'nothing') return Promise.delay(DELAY).then(() => turn(moves))
 
   const aData = JSON.parse(await runEmulator('execute', { key: nextMove }))
